@@ -1,0 +1,16 @@
+﻿@model TinyCrm.Core.Model.Customer
+
+<form method="post">
+    <h2>Edit info</h2>
+    <br />
+    <div class="form-group">
+        <label for="firstName">FirstName</label>
+        <input name="firstName" placeholder="Enter your first name" class="form-control" value="@Model.Firstname">
+    </div>
+    <div class="form-group">
+        <label for="lastName">LastName</label>
+        <input class="form-control" value="@Model.Lastname">
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+
+</form>

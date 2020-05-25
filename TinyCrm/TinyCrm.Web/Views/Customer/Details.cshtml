@@ -1,0 +1,28 @@
+﻿@model TinyCrm.Core.Model.Customer
+@{
+    ViewData["Title"] = "GetById";
+}
+
+@if (Model == null)
+{
+    <div class="alert alert-warning" role="alert">
+        Customer not found
+    </div>
+
+    return;
+}
+
+<div class="card">
+    <div class="card-header">
+        @Model.Firstname @Model.Lastname
+    </div>
+    <div class="card-body">
+        <h5 class="card-title">Vatnumber: @Model.VatNumber</h5>
+        <p class="card-text">
+            @Model.TotalGross
+            <br />
+            @Model.Created
+        </p>
+        <a href="@Url.Action("Edit", "Customer", new { id = Model.CustomerId })" class="btn btn-primary">Edit</a>
+    </div>
+</div>
