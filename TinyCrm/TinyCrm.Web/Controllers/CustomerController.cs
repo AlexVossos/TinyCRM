@@ -21,14 +21,17 @@ namespace TinyCrm.Web.Controllers
         }
 
         [HttpPost]
-        public IActionResult Create([FromBody]CreateCustomerOptions options)
+        public IActionResult Create([FromBody] CreateCustomerOptions options)
         {
             var result = customerService_.CreateCustomer(options);
-            if (result == null)
+
+            if (!result.Success)
             {
-                return BadRequest();
+                return StatusCode((int)result.ErrorCode,
+                    result.ErrorText);
             }
-            return Json(result);
+
+            return Json(result.Data);
         }
 
         [HttpGet]
@@ -40,37 +43,42 @@ namespace TinyCrm.Web.Controllers
 
             return Json(customerList);
         }
-        [HttpGet]
-        public IActionResult GetById(int? id)
+
+        // http://localhost/customer/5
+        // GET: retrieve a customer's info
+        [HttpGet("{id}")]
+        public IActionResult Details(int? id)
         {
-            if (id == null)
-            {
-                return BadRequest();
-            }
-            var customer = customerService_
-                .SearchCustomers(new SearchCustomerOptions()
-                {
-                    CustomerId=id
-                })
-                .SingleOrDefault();
+            var customer = customerService_.GetCustomerById(id).Data;
 
-            if (customer == null)
-            {
-                return NotFound();
-            }
-
-            return Json(customer);
+            return View(customer);
         }
 
-        [HttpPatch]
-        public IActionResult Update([FromBody]UpdateCustomerOptions options)
+        // http://localhost/customer/{id}/edit
+        [HttpGet("{id}/edit")]
+        public IActionResult Edit(int id)
         {
-            var result = customerService_.UpdateCustomer(options);
-            if (result == false)
-            {
-                return BadRequest();
-            }
-            return Json(result);
+            var customer = customerService_.GetCustomerById(id).Data;
+
+            return View(customer);
         }
+
+        // http://localhost/customer/5
+        // PATCH: update a customers info
+        [HttpPatch("{id}")]
+        public IActionResult UpdateCustomer(int id,
+            [FromBody] UpdateCustomerOptions options)
+        {
+            var result = customerService_.UpdateCustomer(id,
+                options);
+
+            if (!result.Success)
+            {
+                return StatusCode((int)result.ErrorCode,
+                    result.ErrorText);
+            }
+
+            return Ok();
+        }        
     }
 }

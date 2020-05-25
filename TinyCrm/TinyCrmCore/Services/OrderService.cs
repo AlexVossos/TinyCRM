@@ -17,11 +17,12 @@ namespace TinyCrm.Core.Services
             customerService_ = customerService;
         }
 
-        public Order CreateOrder(CreateOrderOptions options)
+        public Result<Order> CreateOrder(CreateOrderOptions options)
         {
             if (options == null)
             {
-                return null;
+                return Result<Order>.CreateFailed(
+                    StatusCode.BadRequest, "Null options");
             }
             
             var customer = customerService_.SearchCustomers(new SearchCustomerOptions()
@@ -31,7 +32,14 @@ namespace TinyCrm.Core.Services
 
             if (customer == null)
             {
-                return null;
+                return Result<Order>.CreateFailed(
+                    StatusCode.NotFound, $"Customer with id {options.CustomerId} was not found");
+            }
+
+            if (options.ProductIds == null)
+            {
+                return Result<Order>.CreateFailed(
+                    StatusCode.NotFound, $"No products have been added to the order");
             }
 
             var order = new Order();
@@ -47,11 +55,26 @@ namespace TinyCrm.Core.Services
             }
             customer.Orders.Add(order);
             context_.Add(customer);
-            if (context_.SaveChanges() > 0)
+            var rows = 0;
+
+            try
             {
-                return order;
+                rows = context_.SaveChanges();
             }
-            return null;
+            catch (Exception ex)
+            {
+                return Result<Order>.CreateFailed(
+                    StatusCode.InternalServerError, ex.ToString());
+            }
+
+            if (rows <= 0)
+            {
+                return Result<Order>.CreateFailed(
+                    StatusCode.InternalServerError,
+                    "Order could not be created");
+            }
+
+            return Result<Order>.CreateSuccessful(order);           
         }
 
         public IQueryable<Order> SearchOrders(SearchOrderOptions options)
@@ -88,43 +111,59 @@ namespace TinyCrm.Core.Services
             return query;
         }
 
-        public Order GetOrderById(int? orderId)
+        public Result<Order> GetOrderById(int? orderId)
         {
-            if (orderId==null)
-            {
-                return null;
-            }
-
-            return SearchOrders(new SearchOrderOptions()
+            var order = SearchOrders(new SearchOrderOptions()
             {
                 OrderId = orderId
             }).SingleOrDefault();
-        }
-
-        public bool UpdateOrder(UpdateOrderOptions options)
-        {
-            if (options == null)
-            {
-                return false;
-            }
-
-            var order = GetOrderById(options.OrderId);
 
             if (order == null)
             {
-                return false;
+                return Result<Order>.CreateFailed(
+                    StatusCode.NotFound, $"Order with id {orderId} was not found");
+            }
+
+            return Result<Order>.CreateSuccessful(order);
+        }
+
+        public Result<bool> UpdateOrder(int orderId, UpdateOrderOptions options)
+        {
+            var result = new Result<bool>();
+
+            if (options == null)
+            {
+                result.ErrorCode = StatusCode.BadRequest;
+                result.ErrorText = "Null options";
+
+                return result;
+            }
+
+            var order = GetOrderById(orderId).Data;
+
+            if (order == null)
+            {
+                result.ErrorCode = StatusCode.NotFound;
+                result.ErrorText = $"Order with id {orderId} was not found";
+
+                return result;
             }
 
             if (!string.IsNullOrWhiteSpace(options.DeliveryAddress))
             {
                 order.DeliveryAddress = options.DeliveryAddress;
-            }        
-
-            if (context_.SaveChanges() > 0)
-            {
-                return true;
             }
-            return false;
+
+            if (context_.SaveChanges() == 0)
+            {
+                result.ErrorCode = StatusCode.InternalServerError;
+                result.ErrorText = $"Customer could not be updated";
+                return result;
+            }
+
+            result.ErrorCode = StatusCode.OK;
+            result.Data = true;
+            return result;
 
         }
     }

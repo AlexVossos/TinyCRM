@@ -16,16 +16,28 @@ namespace TinyCrm.Web.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
+        private CustomerService customerService_;
+        private TinyCrmDbContext context;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController()
         {
-            _logger = logger;
+            context = new TinyCrmDbContext();
+            customerService_ = new CustomerService(
+               context);
         }
 
         public IActionResult Index()
         {
-            return View();
+            var viewModel = new HomeViewModel()
+            {
+                Customers = customerService_.SearchCustomers(
+                        new SearchCustomerOptions())
+                    .ToList(),
+                Products = context.Set<Product>()
+                    .ToList()
+            };
+
+            return View(viewModel);
         }
 
         public IActionResult Privacy()

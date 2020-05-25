@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using TinyCrm.Core.Data;
 using TinyCrm.Core.Model;
 using TinyCrm.Core.Services.Options;
@@ -13,11 +14,18 @@ namespace TinyCrm.Core.Services
             context_ = context;
         }
 
-        public Customer CreateCustomer(CreateCustomerOptions options)
+        public Result<Customer> CreateCustomer(CreateCustomerOptions options)
         {
             if (options == null)
             {
-                return null;
+                return Result<Customer>.CreateFailed(
+                    StatusCode.BadRequest, "Null options");
+            }
+
+            if (string.IsNullOrWhiteSpace(options.Vatnumber))
+            {
+                return Result<Customer>.CreateFailed(
+                    StatusCode.BadRequest, "Null or empty VatNumber");
             }
 
             var customer = new Customer()
@@ -27,11 +35,27 @@ namespace TinyCrm.Core.Services
                 VatNumber = options.Vatnumber
             };
             context_.Add(customer);
-            if (context_.SaveChanges() > 0)
+
+            var rows = 0;
+
+            try
             {
-                return customer;
+                rows = context_.SaveChanges();
             }
-            return null;
+            catch (Exception ex)
+            {
+                return Result<Customer>.CreateFailed(
+                    StatusCode.InternalServerError, ex.ToString());
+            }
+
+            if (rows <= 0)
+            {
+                return Result<Customer>.CreateFailed(
+                    StatusCode.InternalServerError,
+                    "Customer could not be created");
+            }
+
+            return Result<Customer>.CreateSuccessful(customer);
         }
 
         public IQueryable<Customer> SearchCustomers(SearchCustomerOptions options)
@@ -70,43 +94,64 @@ namespace TinyCrm.Core.Services
             return query;
         }
 
-        public Customer GetCustomerById(int? customerId)
+        public Result<Customer> GetCustomerById(int? customerId)
         {
-            if (customerId == null)
-            {
-                return null;
-            }
+            //if (customerId == null)
+            //{
+            //    return Result<Customer>.CreateFailed(
+            //        StatusCode.BadRequest, "No customerId given");
+            //}
 
-            return SearchCustomers(new SearchCustomerOptions()
+            var customer=  SearchCustomers(new SearchCustomerOptions()
             {
                 CustomerId = customerId
-            }).SingleOrDefault();            
-        }
-
-        public bool DeleteCustomer(int? customerId)
-        {
-            var customer = GetCustomerById(customerId);
-            context_.Remove(customer);
-            if (context_.SaveChanges() > 0)
-            {
-                return true;
-            }
-            return false;
-
-        }
-
-        public bool UpdateCustomer(UpdateCustomerOptions options)
-        {
-            if (options == null)
-            {
-                return false;
-            }
-
-            var customer = GetCustomerById(options.CustomerId);
+            }).SingleOrDefault();
 
             if (customer == null)
             {
-                return false;
+                return Result<Customer>.CreateFailed(
+                    StatusCode.NotFound, $"Customer with id {customerId} was not found");  
+            }
+
+            return Result<Customer>.CreateSuccessful(customer);
+        }
+
+        public Result<bool> DeleteCustomer(int? customerId)
+        {
+            var customer = GetCustomerById(customerId).Data;
+
+            if (customer == null)
+            {
+                return Result<bool>.CreateFailed(
+                    StatusCode.NotFound, $"Customer with id {customerId} was not found");
+            }
+
+            context_.Remove(customer);
+            if (context_.SaveChanges() > 0)
+            {
+                return Result<bool>.CreateSuccessful(true);
+            }
+            return Result<bool>.CreateFailed(
+                    StatusCode.InternalServerError, $"Customer could not be deleted");
+
+        }
+
+        public Result<bool> UpdateCustomer(int customerId, UpdateCustomerOptions options)
+        {
+            var result = new Result<bool>();
+
+            if (options == null)
+            {
+                return Result<bool>.CreateFailed(
+                    StatusCode.BadRequest, "Null options");
+            }
+
+            var customer = GetCustomerById(customerId).Data;
+
+            if (customer == null)
+            {
+                return Result<bool>.CreateFailed(
+                    StatusCode.NotFound, $"Customer with id {customerId} was not found");
             }
 
             if (options.IsActive != null)
@@ -129,11 +174,13 @@ namespace TinyCrm.Core.Services
                 customer.VatNumber = options.Vatnumber;
             }
 
-            if (context_.SaveChanges() > 0)
+            if (context_.SaveChanges() == 0)
             {
-                return true;
+                return Result<bool>.CreateFailed(
+                     StatusCode.InternalServerError, $"Customer could not be updated");
             }
-            return false;
+
+            return Result<bool>.CreateSuccessful(true);
 
         }
 

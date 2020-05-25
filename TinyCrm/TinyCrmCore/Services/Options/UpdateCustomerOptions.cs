@@ -6,7 +6,6 @@ namespace TinyCrm.Core.Services.Options
 {
     public class UpdateCustomerOptions
     {
-        public int CustomerId { get; set; }
         public string Vatnumber { get; set; }
         public string Firstname { get; set; }
         public string LastName { get; set; }

@@ -7,8 +7,8 @@ namespace TinyCrm.Core.Services
     public interface IProductService
     {
         IQueryable<Product> SearchProducts(SearchProductOptions options);
-        Product CreateProduct(CreateProductOptions options);
-        bool UpdateProduct(UpdateProductOptions options);
-        Product GetProductById(string productId);
+        Result<Product> CreateProduct(CreateProductOptions options);
+        Result<bool> UpdateProduct(string productId, UpdateProductOptions options);
+        Result<Product> GetProductById(string productId);
     }
 }

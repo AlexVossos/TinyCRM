@@ -7,9 +7,9 @@ namespace TinyCrm.Core.Services
     public interface ICustomerService
     {
         IQueryable<Customer> SearchCustomers(SearchCustomerOptions options);
-        Customer CreateCustomer(CreateCustomerOptions options);
-        bool UpdateCustomer(UpdateCustomerOptions options);
-        bool DeleteCustomer(int? customerId);
-        Customer GetCustomerById(int? customerId);
+        Result<Customer> CreateCustomer(CreateCustomerOptions options);
+        Result<bool> UpdateCustomer(int customerId, UpdateCustomerOptions options);
+        Result<bool> DeleteCustomer(int? customerId);
+        Result<Customer> GetCustomerById(int? customerId);
     }
 }

@@ -16,11 +16,12 @@ namespace TinyCrm.Core.Services
             context_ = context;
         }
 
-        public Product CreateProduct(CreateProductOptions options)
+        public Result<Product> CreateProduct(CreateProductOptions options)
         {
             if (options == null)
             {
-                return null;
+                return Result<Product>.CreateFailed(
+                    StatusCode.BadRequest, "Null options");
             }
 
             var product = new Product()
@@ -31,11 +32,27 @@ namespace TinyCrm.Core.Services
                 Price = options.Price,
             };
             context_.Add(product);
-            if (context_.SaveChanges() > 0)
+
+            var rows = 0;
+
+            try
             {
-                return product;
+                rows = context_.SaveChanges();
             }
-            return null;
+            catch (Exception ex)
+            {
+                return Result<Product>.CreateFailed(
+                    StatusCode.InternalServerError, ex.ToString());
+            }
+
+            if (rows <= 0)
+            {
+                return Result<Product>.CreateFailed(
+                    StatusCode.InternalServerError,
+                    "Product could not be created");
+            }
+
+            return Result<Product>.CreateSuccessful(product);
         }
 
         public IQueryable<Product> SearchProducts(SearchProductOptions options)
@@ -78,57 +95,80 @@ namespace TinyCrm.Core.Services
             return query;
         }
 
-        public Product GetProductById(string productId)
+        public Result<Product> GetProductById(string productId)
         {
             if (string.IsNullOrWhiteSpace(productId))
             {
-                return null;
+                return Result<Product>.CreateFailed(
+                    StatusCode.BadRequest, "No productId given");
             }
 
-            return SearchProducts(new SearchProductOptions()
+            var product= SearchProducts(new SearchProductOptions()
             {
                 ProductId = productId
             }).SingleOrDefault();
+
+            if (product == null)
+            {
+                return Result<Product>.CreateFailed(
+                    StatusCode.NotFound, $"Product with id {productId} was not found");
+            }
+
+            return Result<Product>.CreateSuccessful(product);
         }
 
-        public bool UpdateProduct(UpdateProductOptions options)
+        public Result<bool> UpdateProduct(string productId,UpdateProductOptions options)
         {
+            var result = new Result<bool>();
+
             if (options == null)
             {
-                return false;
+                result.ErrorCode = StatusCode.BadRequest;
+                result.ErrorText = "Null options";
+
+                return result;
             }
 
-            var product = GetProductById(options.ProductId);
+            var product = GetProductById(productId).Data;
 
-            if (product != null)
+            if (product == null)
             {
-                if (options.Category != null)
-                {
-                    product.Category = options.Category;
-                }
+                result.ErrorCode = StatusCode.NotFound;
+                result.ErrorText = $"Product with id {productId} was not found";
 
-                if (!string.IsNullOrWhiteSpace(options.Description))
-                {
-                    product.Description = options.Description;
-                }
-
-                if (!string.IsNullOrWhiteSpace(options.Name))
-                {
-                    product.Name = options.Name;
-                }
-
-                if (options.Price != null)
-                {
-                    product.Price = options.Price;
-                }
-
+                return result;
             }
 
-            if (context_.SaveChanges() > 0)
+            if (options.Category != null)
             {
-                return true;
+                product.Category = options.Category;
             }
-            return false;
+
+            if (!string.IsNullOrWhiteSpace(options.Description))
+            {
+                product.Description = options.Description;
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.Name))
+            {
+                product.Name = options.Name;
+            }
+
+            if (options.Price != null)
+            {
+                product.Price = options.Price;
+            }
+
+            if (context_.SaveChanges() == 0)
+            {
+                result.ErrorCode = StatusCode.InternalServerError;
+                result.ErrorText = $"Customer could not be updated";
+                return result;
+            }
+
+            result.ErrorCode = StatusCode.OK;
+            result.Data = true;
+            return result;
 
         }
     }
